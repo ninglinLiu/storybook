@@ -92,19 +92,13 @@ interface VersionModifier {
 /** Glob pattern for finding Storybook directories */
 const STORYBOOK_DIR_PATTERN = ['**/.storybook', '**/.rnstorybook'];
 
-const withoutGitIgnored = (paths: string[], cwd: string) => {
-  const { status, stdout } = spawnSync('git', ['check-ignore', '-z', '--stdin'], {
-    cwd,
-    input: paths.join('\0'),
-    encoding: 'utf8',
-  });
-  // 0 means some paths are ignored, 1 none, and any other status that git cannot tell.
-  if (status !== 0) {
-    return paths;
-  }
-  const ignored = new Set(stdout.split('\0'));
-  return paths.filter((path) => !ignored.has(path));
-};
+// Asked from inside the directory, so the repository that owns it answers, also in a submodule.
+const isGitIgnored = (directory: string) =>
+  spawnSync('git', ['check-ignore', '-q', '--', '.'], { cwd: directory }).status === 0;
+
+// A project can live in a directory that a parent repository ignores, such as a reproduction.
+const withoutGitIgnored = (paths: string[], cwd: string) =>
+  isGitIgnored(cwd) ? paths : paths.filter((path) => !isGitIgnored(resolve(cwd, path)));
 
 // ============================================================================
 // UTILITY FUNCTIONS
